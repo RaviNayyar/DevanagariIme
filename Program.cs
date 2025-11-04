@@ -9,19 +9,56 @@ namespace DevanagariIME
 {
     class Program
     {
+        // Global flag to control console output
+        public static bool EnableConsoleOutput { get; private set; } = false;
+        
         [STAThread]
         static void Main(string[] args)
         {
-            Console.OutputEncoding = Encoding.UTF8;
-            
-            ITRANSTranslator translator = new ITRANSTranslator();
-
-            // Check if test mode is requested
+            // Check what mode we're running in
             bool runTests = args.Length > 0 && (args[0] == "--test" || args[0] == "-t" || args[0] == "test");
             bool runInteractive = args.Length > 0 && (args[0] == "--interactive" || args[0] == "-i" || args[0] == "interactive");
             
+            // Only enable console output for interactive/test modes, not for tray app mode
+            EnableConsoleOutput = runTests || runInteractive;
+            
+            // Only set console encoding if we have a console and want console output
+            if (EnableConsoleOutput)
+            {
+                try
+                {
+                    if (!Console.IsOutputRedirected)
+                    {
+                        Console.OutputEncoding = Encoding.UTF8;
+                    }
+                }
+                catch (IOException)
+                {
+                    // No console available - this is fine
+                }
+            }
+            else
+            {
+                // For tray app mode, free the console if it was allocated
+                // This prevents a console window from appearing
+                try
+                {
+                    var handle = GetConsoleWindow();
+                    if (handle != IntPtr.Zero)
+                    {
+                        FreeConsole();
+                    }
+                }
+                catch
+                {
+                    // Ignore errors
+                }
+            }
+            
+            ITRANSTranslator translator = new ITRANSTranslator();
+            
             // Only check admin privileges for IME mode (not interactive/test modes)
-            if (!runTests && !runInteractive)
+            if (!runTests && !runInteractive && EnableConsoleOutput)
             {
                 // Check for administrator privileges
                 bool isAdmin = IsRunningAsAdministrator();
@@ -55,10 +92,14 @@ namespace DevanagariIME
                     Application.EnableVisualStyles();
                     Application.SetCompatibleTextRenderingDefault(false);
                     
-                    Console.WriteLine("Devanagari IME is running.");
-                    Console.WriteLine("Look for the tray icon (द) in your system tray.");
-                    Console.WriteLine("Right-click the icon to enable the IME.");
-                    Console.WriteLine("Press Ctrl+C or close this window to exit.");
+                    // Only show console messages if console output is enabled
+                    if (EnableConsoleOutput)
+                    {
+                        Console.WriteLine("Devanagari IME is running.");
+                        Console.WriteLine("Look for the tray icon (द) in your system tray.");
+                        Console.WriteLine("Right-click the icon to enable the IME.");
+                        Console.WriteLine("Press Ctrl+C or close this window to exit.");
+                    }
                     
                     Application.Run(new IMETrayApp());
                 }
@@ -134,6 +175,13 @@ namespace DevanagariIME
         [DllImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool AllocConsole();
+        
+        [DllImport("kernel32.dll")]
+        private static extern IntPtr GetConsoleWindow();
+        
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool FreeConsole();
 
         private static bool IsRunningAsAdministrator()
         {

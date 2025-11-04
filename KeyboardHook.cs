@@ -37,14 +37,20 @@ namespace DevanagariIME
                 {
                     // Hook is already set in constructor, just enable processing
                     _isEnabled = true;
-                    Console.WriteLine("IME processing enabled.");
+                    if (Program.EnableConsoleOutput)
+                    {
+                        Console.WriteLine("IME processing enabled.");
+                    }
                 }
                 else if (!value && _isEnabled)
                 {
                     // Don't unhook, just disable processing (so toggle shortcut still works)
                     _isEnabled = false;
                     _inputBuffer.Clear(); // Clear buffer when disabling
-                    Console.WriteLine("IME processing disabled.");
+                    if (Program.EnableConsoleOutput)
+                    {
+                        Console.WriteLine("IME processing disabled.");
+                    }
                 }
             }
         }
@@ -79,12 +85,18 @@ namespace DevanagariIME
                 _hookID = SetHook(_proc);
                 if (_hookID == IntPtr.Zero)
                 {
+                    if (Program.EnableConsoleOutput)
+                {
                     Console.WriteLine("Warning: Failed to set keyboard hook for toggle shortcut. Toggle shortcut may not work.");
+                }
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Warning: Failed to set keyboard hook for toggle shortcut: {ex.Message}");
+                if (Program.EnableConsoleOutput)
+                {
+                    Console.WriteLine($"Warning: Failed to set keyboard hook for toggle shortcut: {ex.Message}");
+                }
             }
         }
 
@@ -121,7 +133,10 @@ namespace DevanagariIME
                     
                     if (ctrlPressed && shiftPressed)
                     {
-                        Console.WriteLine("[DEBUG] Ctrl+Shift+D pressed - toggling IME");
+                        if (Program.EnableConsoleOutput)
+                        {
+                            Console.WriteLine("[DEBUG] Ctrl+Shift+D pressed - toggling IME");
+                        }
                         ToggleRequested?.Invoke(this, EventArgs.Empty);
                         return (IntPtr)1; // Suppress the key
                     }
@@ -134,7 +149,7 @@ namespace DevanagariIME
                 }
 
                 // Debug: Log key presses (only for letters to avoid spam)
-                if (key >= Keys.A && key <= Keys.Z)
+                if (key >= Keys.A && key <= Keys.Z && Program.EnableConsoleOutput)
                 {
                     Console.WriteLine($"[DEBUG] Key pressed: {key}, Buffer length: {_inputBuffer.Length}");
                 }
@@ -142,19 +157,28 @@ namespace DevanagariIME
                 // Trigger keys: Space, Enter, Tab
                 if (key == Keys.Space || key == Keys.Enter || key == Keys.Tab)
                 {
-                    Console.WriteLine($"[DEBUG] Trigger key pressed: {key}, Buffer: '{_inputBuffer}'");
+                    if (Program.EnableConsoleOutput)
+                    {
+                        Console.WriteLine($"[DEBUG] Trigger key pressed: {key}, Buffer: '{_inputBuffer}'");
+                    }
                     
                     // For Space or Tab: if no buffer, let the key through normally
                     if ((key == Keys.Space || key == Keys.Tab) && _inputBuffer.Length == 0)
                     {
-                        Console.WriteLine($"[DEBUG] {key} pressed with empty buffer - letting through");
+                        if (Program.EnableConsoleOutput)
+                        {
+                            Console.WriteLine($"[DEBUG] {key} pressed with empty buffer - letting through");
+                        }
                         return CallNextHookEx(_hookID, nCode, wParam, lParam);
                     }
                     
                     // For Enter with no buffer: let it through to create new line
                     if (key == Keys.Enter && _inputBuffer.Length == 0)
                     {
-                        Console.WriteLine($"[DEBUG] Enter pressed with empty buffer - creating new line");
+                        if (Program.EnableConsoleOutput)
+                        {
+                            Console.WriteLine($"[DEBUG] Enter pressed with empty buffer - creating new line");
+                        }
                         return CallNextHookEx(_hookID, nCode, wParam, lParam);
                     }
                     
@@ -165,11 +189,17 @@ namespace DevanagariIME
                         string itransText = _inputBuffer.ToString();
                         string devanagari = _translator.Translate(itransText);
                         
-                        Console.WriteLine($"[DEBUG] Converting: '{itransText}' -> '{devanagari}'");
+                        if (Program.EnableConsoleOutput)
+                        {
+                            Console.WriteLine($"[DEBUG] Converting: '{itransText}' -> '{devanagari}'");
+                        }
                         
                         if (itransText != devanagari && !string.IsNullOrEmpty(devanagari))
                         {
-                            Console.WriteLine($"[DEBUG] Conversion needed, replacing text...");
+                            if (Program.EnableConsoleOutput)
+                            {
+                                Console.WriteLine($"[DEBUG] Conversion needed, replacing text...");
+                            }
                             // Queue the replacement operation (can't call SendInput from hook)
                             string textToReplace = itransText;
                             string replacementText = devanagari;
@@ -177,7 +207,10 @@ namespace DevanagariIME
                             
                             // Capture the window handle NOW while we're in the hook (more reliable)
                             IntPtr currentWindow = GetForegroundWindow();
-                            Console.WriteLine($"[DEBUG] Captured window handle: {currentWindow}");
+                            if (Program.EnableConsoleOutput)
+                            {
+                                Console.WriteLine($"[DEBUG] Captured window handle: {currentWindow}");
+                            }
                             
                             // Clear buffer immediately to prevent accumulation
                             _inputBuffer.Clear();
@@ -191,7 +224,10 @@ namespace DevanagariIME
                                 // Check if this action was canceled
                                 if (_cancelPendingActions)
                                 {
-                                    Console.WriteLine("[DEBUG] Conversion action canceled");
+                                    if (Program.EnableConsoleOutput)
+                                    {
+                                        Console.WriteLine("[DEBUG] Conversion action canceled");
+                                    }
                                     return;
                                 }
                                 
@@ -207,7 +243,10 @@ namespace DevanagariIME
                                         // Check again after posting to UI thread
                                         if (_cancelPendingActions)
                                         {
-                                            Console.WriteLine("[DEBUG] Conversion canceled in UI thread");
+                                            if (Program.EnableConsoleOutput)
+                                            {
+                                                Console.WriteLine("[DEBUG] Conversion canceled in UI thread");
+                                            }
                                             _inConversionMode = false;
                                             return;
                                         }
@@ -253,7 +292,10 @@ namespace DevanagariIME
                                                 // For Enter: we suppressed it, so only delete the text
                                                 // The Enter never happened, so we're still on the current line
                                                 charsToDelete = textToReplace.Length;
-                                                Console.WriteLine($"[DEBUG] Enter-triggered: Deleting {charsToDelete} characters (text only, Enter was suppressed)");
+                                                if (Program.EnableConsoleOutput)
+                                                {
+                                                    Console.WriteLine($"[DEBUG] Enter-triggered: Deleting {charsToDelete} characters (text only, Enter was suppressed)");
+                                                }
                                             }
                                             else
                                             {
@@ -261,10 +303,16 @@ namespace DevanagariIME
                                                 // We'll add the space back after pasting
                                                 charsToDelete = textToReplace.Length;
                                                 shouldAddSpaceAfter = true;
-                                                Console.WriteLine($"[DEBUG] Space/Tab-triggered: Deleting {charsToDelete} characters (text only, space/tab was suppressed, will add back)");
+                                                if (Program.EnableConsoleOutput)
+                                                {
+                                                    Console.WriteLine($"[DEBUG] Space/Tab-triggered: Deleting {charsToDelete} characters (text only, space/tab was suppressed, will add back)");
+                                                }
                                             }
                                             
-                                            Console.WriteLine($"[DEBUG] Current window: {hWnd}, ensuring focus before deletion");
+                                            if (Program.EnableConsoleOutput)
+                                            {
+                                                Console.WriteLine($"[DEBUG] Current window: {hWnd}, ensuring focus before deletion");
+                                            }
                                             
                                             // Ensure focus one more time right before deletion
                                             if (hWnd != IntPtr.Zero)
@@ -274,7 +322,10 @@ namespace DevanagariIME
                                             }
                                             
                                             // Delete only the text (both Space and Enter were suppressed, so they never appeared)
-                                            Console.WriteLine($"[DEBUG] Deleting {charsToDelete} characters (text only)");
+                                            if (Program.EnableConsoleOutput)
+                                            {
+                                                Console.WriteLine($"[DEBUG] Deleting {charsToDelete} characters (text only)");
+                                            }
                                             // Use batch deletion for speed - send all backspaces at once
                                             if (charsToDelete > 0)
                                             {
@@ -300,7 +351,10 @@ namespace DevanagariIME
                                                 IntPtr verifyWindow = GetForegroundWindow();
                                                 if (verifyWindow != hWnd)
                                                 {
-                                                    Console.WriteLine($"[DEBUG] WARNING: Window changed after deletion! Expected {hWnd}, got {verifyWindow}");
+                                                    if (Program.EnableConsoleOutput)
+                                                    {
+                                                        Console.WriteLine($"[DEBUG] WARNING: Window changed after deletion! Expected {hWnd}, got {verifyWindow}");
+                                                    }
                                                     SetForegroundWindow(hWnd);
                                                     Thread.Sleep(30);
                                                 }
@@ -314,10 +368,16 @@ namespace DevanagariIME
                                             }
                                             
                                             // Send Devanagari text
-                                            Console.WriteLine($"[DEBUG] Sending Devanagari text: '{replacementText}' at cursor position");
-                                            Console.WriteLine($"[DEBUG] Window handle before paste: {hWnd}");
+                                            if (Program.EnableConsoleOutput)
+                                            {
+                                                Console.WriteLine($"[DEBUG] Sending Devanagari text: '{replacementText}' at cursor position");
+                                                Console.WriteLine($"[DEBUG] Window handle before paste: {hWnd}");
+                                            }
                                             SendText(replacementText);
-                                            Console.WriteLine($"[DEBUG] Paste completed");
+                                            if (Program.EnableConsoleOutput)
+                                            {
+                                                Console.WriteLine($"[DEBUG] Paste completed");
+                                            }
                                             
                                             // For Space/Tab: add the space back (it was suppressed, so we need to add it)
                                             if (shouldAddSpaceAfter)
@@ -329,7 +389,10 @@ namespace DevanagariIME
                                                     Thread.Sleep(10);
                                                 }
                                                 SendKeys.SendWait(" "); // Add space back
-                                                Console.WriteLine("[DEBUG] Added space after Devanagari text (space was suppressed)");
+                                                if (Program.EnableConsoleOutput)
+                                                {
+                                                    Console.WriteLine("[DEBUG] Added space after Devanagari text (space was suppressed)");
+                                                }
                                             }
                                             
                                             // For Enter: we suppressed the Enter key, so we need to explicitly add it back
@@ -337,7 +400,10 @@ namespace DevanagariIME
                                             if (capturedIsEnter)
                                             {
                                                 Thread.Sleep(30); // Reduced wait for paste to complete
-                                                Console.WriteLine($"[DEBUG] Preparing to add Enter after Devanagari text");
+                                                if (Program.EnableConsoleOutput)
+                                                {
+                                                    Console.WriteLine($"[DEBUG] Preparing to add Enter after Devanagari text");
+                                                }
                                                 
                                                 // Re-focus window to ensure Enter goes to the right place
                                                 if (hWnd != IntPtr.Zero)
@@ -345,7 +411,10 @@ namespace DevanagariIME
                                                     IntPtr currentWindow = GetForegroundWindow();
                                                     if (currentWindow != hWnd)
                                                     {
-                                                        Console.WriteLine($"[DEBUG] Window changed! Re-focusing to {hWnd}");
+                                                        if (Program.EnableConsoleOutput)
+                                                        {
+                                                            Console.WriteLine($"[DEBUG] Window changed! Re-focusing to {hWnd}");
+                                                        }
                                                         SetForegroundWindow(hWnd);
                                                         Thread.Sleep(30);
                                                     }
@@ -358,17 +427,26 @@ namespace DevanagariIME
                                                 
                                                 // Send Enter to create newline and move to next line
                                                 SendKeys.SendWait("{ENTER}");
-                                                Console.WriteLine("[DEBUG] Enter-triggered conversion: Added Enter after Devanagari text to create newline");
+                                                if (Program.EnableConsoleOutput)
+                                                {
+                                                    Console.WriteLine("[DEBUG] Enter-triggered conversion: Added Enter after Devanagari text to create newline");
+                                                }
                                             }
                                             
                                             // Ensure buffer is still clear after conversion
                                             _inputBuffer.Clear();
                                             _inConversionMode = false;
-                                            Console.WriteLine($"[DEBUG] Conversion complete! Buffer cleared.");
+                                            if (Program.EnableConsoleOutput)
+                                            {
+                                                Console.WriteLine($"[DEBUG] Conversion complete! Buffer cleared.");
+                                            }
                                         }
                                         catch (Exception ex)
                                         {
-                                            Console.WriteLine($"[DEBUG] Error in UI thread action: {ex.Message}");
+                                            if (Program.EnableConsoleOutput)
+                                            {
+                                                Console.WriteLine($"[DEBUG] Error in UI thread action: {ex.Message}");
+                                            }
                                             _inConversionMode = false;
                                         }
                                     }, null);
@@ -376,13 +454,19 @@ namespace DevanagariIME
                                     else
                                     {
                                         // Fallback if no sync context
-                                        Console.WriteLine("[DEBUG] No synchronization context available");
+                                        if (Program.EnableConsoleOutput)
+                                        {
+                                            Console.WriteLine("[DEBUG] No synchronization context available");
+                                        }
                                         _inConversionMode = false;
                                     }
                                 }
                                 catch (Exception ex)
                                 {
-                                    Console.WriteLine($"[DEBUG] Error in queued action: {ex.Message}");
+                                    if (Program.EnableConsoleOutput)
+                                    {
+                                        Console.WriteLine($"[DEBUG] Error in queued action: {ex.Message}");
+                                    }
                                     _inConversionMode = false;
                                 }
                             });
@@ -402,7 +486,10 @@ namespace DevanagariIME
                         }
                         else
                         {
-                            Console.WriteLine($"[DEBUG] No conversion needed or empty result");
+                            if (Program.EnableConsoleOutput)
+                            {
+                                Console.WriteLine($"[DEBUG] No conversion needed or empty result");
+                            }
                             _inputBuffer.Clear();
                             
                             // For Enter with no conversion: let it through to create new line
@@ -421,7 +508,10 @@ namespace DevanagariIME
                     if (_inputBuffer.Length > 0)
                     {
                         _inputBuffer.Length--; // Remove last character
-                        Console.WriteLine($"[DEBUG] Backspace pressed. Buffer now: '{_inputBuffer}'");
+                        if (Program.EnableConsoleOutput)
+                        {
+                            Console.WriteLine($"[DEBUG] Backspace pressed. Buffer now: '{_inputBuffer}'");
+                        }
                         StatusChanged?.Invoke(this, $"Buffer: {_inputBuffer}");
                     }
                     // Let backspace through normally to delete the character on screen
@@ -440,14 +530,20 @@ namespace DevanagariIME
                     if (ch != '\0')
                     {
                         _inputBuffer.Append(ch);
-                        Console.WriteLine($"[DEBUG] Added '{ch}' to buffer. Buffer now: '{_inputBuffer}'");
+                        if (Program.EnableConsoleOutput)
+                        {
+                            Console.WriteLine($"[DEBUG] Added '{ch}' to buffer. Buffer now: '{_inputBuffer}'");
+                        }
                         StatusChanged?.Invoke(this, $"Buffer: {_inputBuffer}");
                         // Let the key through normally - it will appear in the document
                         // We'll delete it and replace with Devanagari when Space/Enter is pressed
                     }
                     else
                     {
-                        Console.WriteLine($"[DEBUG] Key {key} did not produce a character");
+                        if (Program.EnableConsoleOutput)
+                        {
+                            Console.WriteLine($"[DEBUG] Key {key} did not produce a character");
+                        }
                     }
                 }
             }
@@ -546,11 +642,17 @@ namespace DevanagariIME
                 IntPtr hWnd = GetForegroundWindow();
                 if (hWnd == IntPtr.Zero)
                 {
-                    Console.WriteLine("[DEBUG] Could not get foreground window");
+                    if (Program.EnableConsoleOutput)
+                    {
+                        Console.WriteLine("[DEBUG] Could not get foreground window");
+                    }
                     return;
                 }
                 
-                Console.WriteLine($"[DEBUG] Target window handle: {hWnd}");
+                if (Program.EnableConsoleOutput)
+                {
+                    Console.WriteLine($"[DEBUG] Target window handle: {hWnd}");
+                }
                 
                 // Save current clipboard
                 string? oldClipboard = null;
@@ -567,11 +669,17 @@ namespace DevanagariIME
                 try
                 {
                     Clipboard.SetText(text);
-                    Console.WriteLine($"[DEBUG] Text copied to clipboard: '{text}'");
+                    if (Program.EnableConsoleOutput)
+                    {
+                        Console.WriteLine($"[DEBUG] Text copied to clipboard: '{text}'");
+                    }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[DEBUG] Failed to set clipboard: {ex.Message}");
+                    if (Program.EnableConsoleOutput)
+                    {
+                        Console.WriteLine($"[DEBUG] Failed to set clipboard: {ex.Message}");
+                    }
                     return;
                 }
                 
@@ -583,20 +691,32 @@ namespace DevanagariIME
                 try
                 {
                     SendKeys.SendWait("^v"); // Ctrl+V
-                    Console.WriteLine("[DEBUG] SendKeys.SendWait executed");
+                    if (Program.EnableConsoleOutput)
+                    {
+                        Console.WriteLine("[DEBUG] SendKeys.SendWait executed");
+                    }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[DEBUG] SendKeys failed: {ex.Message}, trying SendMessage");
+                    if (Program.EnableConsoleOutput)
+                    {
+                        Console.WriteLine($"[DEBUG] SendKeys failed: {ex.Message}, trying SendMessage");
+                    }
                     
                     // Fallback: Try WM_PASTE
                     IntPtr result = SendMessage(hWnd, WM_PASTE, IntPtr.Zero, IntPtr.Zero);
-                    Console.WriteLine($"[DEBUG] WM_PASTE result: {result}");
+                    if (Program.EnableConsoleOutput)
+                    {
+                        Console.WriteLine($"[DEBUG] WM_PASTE result: {result}");
+                    }
                     
                     // If still not working, try keyboard messages
                     if (result == IntPtr.Zero)
                     {
-                        Console.WriteLine("[DEBUG] Trying keyboard messages via SendMessage");
+                        if (Program.EnableConsoleOutput)
+                        {
+                            Console.WriteLine("[DEBUG] Trying keyboard messages via SendMessage");
+                        }
                         SendMessage(hWnd, WM_KEYDOWN, (IntPtr)VK_CONTROL, IntPtr.Zero);
                         Thread.Sleep(10); // Reduced from 20
                         SendMessage(hWnd, WM_KEYDOWN, (IntPtr)VK_V, IntPtr.Zero);
@@ -628,11 +748,17 @@ namespace DevanagariIME
                     catch { }
                 }
                 
-                Console.WriteLine($"[DEBUG] Paste operation completed");
+                if (Program.EnableConsoleOutput)
+                {
+                    Console.WriteLine($"[DEBUG] Paste operation completed");
+                }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[DEBUG] Clipboard method failed: {ex.Message}");
+                if (Program.EnableConsoleOutput)
+                {
+                    Console.WriteLine($"[DEBUG] Clipboard method failed: {ex.Message}");
+                }
             }
         }
 
@@ -672,7 +798,10 @@ namespace DevanagariIME
             uint result = SendInput(2, inputs, Marshal.SizeOf(typeof(INPUT)));
             if (result == 0)
             {
-                Console.WriteLine($"[DEBUG] SendChar failed for '{c}' (U+{(int)c:X4}): {Marshal.GetLastWin32Error()}");
+                if (Program.EnableConsoleOutput)
+                {
+                    Console.WriteLine($"[DEBUG] SendChar failed for '{c}' (U+{(int)c:X4}): {Marshal.GetLastWin32Error()}");
+                }
             }
             System.Threading.Thread.Sleep(5);
         }

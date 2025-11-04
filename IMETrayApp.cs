@@ -36,8 +36,12 @@ namespace DevanagariIME
                 _trayIcon.DoubleClick += TrayIcon_DoubleClick;
                 
                 UpdateIcon();
-                Console.WriteLine("System tray icon created. IME is DISABLED by default.");
-                Console.WriteLine("Right-click the tray icon and select 'Enable IME' to activate it.");
+                // Only write to console if console output is enabled (not in silent tray mode)
+                if (Program.EnableConsoleOutput)
+                {
+                    Console.WriteLine("System tray icon created. IME is DISABLED by default.");
+                    Console.WriteLine("Right-click the tray icon and select 'Enable IME' to activate it.");
+                }
             }
             catch (Exception ex)
             {
@@ -48,12 +52,16 @@ namespace DevanagariIME
                 }
                 errorMsg += $"\n\nStack Trace:\n{ex.StackTrace}";
                 
-                try
+                // Only log to console if console output is enabled
+                if (Program.EnableConsoleOutput)
                 {
-                    Console.WriteLine($"Error initializing IME: {ex.Message}");
-                    Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                    try
+                    {
+                        Console.WriteLine($"Error initializing IME: {ex.Message}");
+                        Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                    }
+                    catch { }
                 }
-                catch { }
                 
                 MessageBox.Show(errorMsg, 
                     "Devanagari IME Error", 
@@ -90,7 +98,10 @@ namespace DevanagariIME
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error creating icon: {ex.Message}");
+                if (Program.EnableConsoleOutput)
+                {
+                    Console.WriteLine($"Error creating icon: {ex.Message}");
+                }
                 // Fallback: use system icon
                 return SystemIcons.Application;
             }
@@ -166,24 +177,36 @@ namespace DevanagariIME
         {
             try
             {
-                Console.WriteLine("Attempting to enable IME...");
+                if (Program.EnableConsoleOutput)
+                {
+                    Console.WriteLine("Attempting to enable IME...");
+                }
                 _keyboardHook.IsEnabled = true;
                 _isEnabled = _keyboardHook.IsEnabled; // Update our state from actual hook state
                 UpdateIcon();
                 if (_isEnabled)
                 {
                     _trayIcon.ShowBalloonTip(2000, "Devanagari IME", "IME Enabled", ToolTipIcon.Info);
-                    Console.WriteLine("IME enabled successfully.");
+                    if (Program.EnableConsoleOutput)
+                    {
+                        Console.WriteLine("IME enabled successfully.");
+                    }
                 }
                 else
                 {
                     _trayIcon.ShowBalloonTip(3000, "Devanagari IME", "Failed to enable IME. Check console for details.", ToolTipIcon.Warning);
-                    Console.WriteLine("IME enable failed - check error messages above.");
+                    if (Program.EnableConsoleOutput)
+                    {
+                        Console.WriteLine("IME enable failed - check error messages above.");
+                    }
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Exception while enabling IME: {ex.Message}");
+                if (Program.EnableConsoleOutput)
+                {
+                    Console.WriteLine($"Exception while enabling IME: {ex.Message}");
+                }
                 MessageBox.Show($"Error enabling IME:\n\n{ex.Message}", "Devanagari IME Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
