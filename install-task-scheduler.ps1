@@ -9,10 +9,28 @@ param(
 $ErrorActionPreference = "Stop"
 
 $taskName = "DevanagariIME"
-$exePath = Join-Path $PSScriptRoot "bin\Debug\net6.0-windows\DevanagariIME.exe"
+
+# Try to find the executable in multiple locations
+# First, try the installed location (when run from installer)
+$exePath = Join-Path $PSScriptRoot "DevanagariIME.exe"
+
+# If not found, try the development build location
+if (-not (Test-Path $exePath)) {
+    $exePath = Join-Path $PSScriptRoot "bin\Debug\net6.0-windows\DevanagariIME.exe"
+}
+
+# If still not found, try Release build location
+if (-not (Test-Path $exePath)) {
+    $exePath = Join-Path $PSScriptRoot "bin\Release\net6.0-windows\DevanagariIME.exe"
+}
 
 if (-not (Test-Path $exePath)) {
-    Write-Host "Error: Executable not found at $exePath" -ForegroundColor Red
+    Write-Host "Error: Executable not found." -ForegroundColor Red
+    Write-Host "Searched in:" -ForegroundColor Yellow
+    Write-Host "  - $PSScriptRoot\DevanagariIME.exe" -ForegroundColor Gray
+    Write-Host "  - $PSScriptRoot\bin\Debug\net6.0-windows\DevanagariIME.exe" -ForegroundColor Gray
+    Write-Host "  - $PSScriptRoot\bin\Release\net6.0-windows\DevanagariIME.exe" -ForegroundColor Gray
+    Write-Host ""
     Write-Host "Please build the project first using: dotnet build" -ForegroundColor Yellow
     exit 1
 }

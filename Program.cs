@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Text;
+using System.Threading;
 using System.Windows.Forms;
 
 namespace DevanagariIME
@@ -12,12 +13,34 @@ namespace DevanagariIME
         // Global flag to control console output
         public static bool EnableConsoleOutput { get; private set; } = false;
         
+        // Mutex to prevent multiple instances
+        private static Mutex? _mutex;
+        private const string MutexName = "DevanagariIME_SingleInstance_Mutex";
+        
         [STAThread]
         static void Main(string[] args)
         {
-            // Check what mode we're running in
+            // Check for existing instance (only for tray app mode)
             bool runTests = args.Length > 0 && (args[0] == "--test" || args[0] == "-t" || args[0] == "test");
             bool runInteractive = args.Length > 0 && (args[0] == "--interactive" || args[0] == "-i" || args[0] == "interactive");
+            
+            // Only check for duplicates in tray app mode (not in test/interactive modes)
+            if (!runTests && !runInteractive)
+            {
+                bool createdNew;
+                _mutex = new Mutex(true, MutexName, out createdNew);
+                
+                if (!createdNew)
+                {
+                    // Another instance is already running
+                    MessageBox.Show(
+                        "Devanagari IME is already running.\n\nCheck your system tray for the IME icon.",
+                        "Devanagari IME",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                    return;
+                }
+            }
             
             // Only enable console output for interactive/test modes, not for tray app mode
             EnableConsoleOutput = runTests || runInteractive;
@@ -116,6 +139,12 @@ namespace DevanagariIME
                         "Devanagari IME Error", 
                         MessageBoxButtons.OK, 
                         MessageBoxIcon.Error);
+                }
+                finally
+                {
+                    // Release mutex when application exits
+                    _mutex?.ReleaseMutex();
+                    _mutex?.Dispose();
                 }
             }
         }
